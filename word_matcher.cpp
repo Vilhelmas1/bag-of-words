@@ -15,142 +15,53 @@ using namespace std;
 class TextOperation {
   public:
     std::map<std::string, int> read_dictionary_file();
-    void find_all_mathces(std::map<std::string, int> mapOfWordCount, string sentence);
-    void queue(string f);
-    void start(std::size_t N=1);
-    void abort();
-    void cancel_pending();
-    void finish(); // finish enques a "stop the thread" message for every thread, then waits for them:
-    //~TextOperation();
+    // vector find_all_mathces(std::map<std::string, int> mapOfWordCount, string sentence);
+     vector<int> start(string sentence, map<std::string, int> mapOfWordCount);
 
-    // the mutex, condition variable and deque form a single
-    // thread-safe triggered queue of tasks:
-    std::mutex m;
-    std::condition_variable v;
-    // note that a packaged_task<void> can store a packaged_task<R>:
-    std::deque<std::string> work;
-
-    // this holds futures representing the worker threads being done:
-    std::vector<std::future<void>> finished;
-
-  private:
-    void thread_task(); // the work that a worker thread does:
+    // Užkomentuoju, bet gal reikėtu async procesus deti i finished vektoriu, iš kurio veliau rezultatus issitraukti galima.
+    // TextOperation::start funkcijoje bandžiau padaryti taip bet gaunu error neiaišku ir nepaėjo to padaryti. 
+    // std::vector<vector<int>> finished;
 };
 
-
 /**
- *  @brief:
- *  @note:
- *  @return:
+ *  @brief: Matcher function that checks if text has value from map
+ *  @note: 
+ *  @return: returns vectorized ids of words that exist in text
  */
-void TextOperation::find_all_mathces(std::map<std::string, int> mapOfWordCount, string sentence)
-{     
+vector<int> find_all_mathces(std::map<std::string, int> mapOfWordCount, string sentence)
+{ 
+  vector<int> item_ids;
   for (std::pair<std::string, int> element : mapOfWordCount)
   {
     int count = element.second;
     if (sentence.find( element.first) != std::string::npos){
-      cout << element.first <<endl;
+      item_ids.push_back(count);
     }
   }
+  return item_ids;
 }
 
 /**
- *  @brief:
- *  @note:
- *  @return:
+ *  @brief: Main function that starts an async proccess and returns a vector with ids of words found in text.
+ *  @note: start an async proccess that find map values in provided sentence.
+ *  @return: vector<int> object with map ids.
  */
-  void TextOperation::queue(string f) {
-    {
-      std::unique_lock<std::mutex> l(m);
-      work.emplace_back(std::move(f)); // store the task<R()> as a task<void()>
-    }
-    v.notify_one(); // wake a thread to work on the task
+  vector<int> TextOperation::start(string sentence, map<std::string, int> mapOfWordCount){
+    // each thread is a std::async running this->find_all_matches():
+    future<vector<int>> fut = std::async(std::launch::async, find_all_mathces, mapOfWordCount, sentence);
+
+    // finished.push_back(
+    //     std::async(std::launch::async, find_all_mathces, mapOfWordCount, sentence));
+    // finished.push_back(std::async(std::launch::async, find_all_mathces, mapOfWordCount, sentence));
+
+    fut.wait();
+    return fut.get();
   }
 
 /**
- *  @brief:
- *  @note: start N threads in the thread pool.
- *  @return:
- */
-  void TextOperation::start(std::size_t N){
-    for (std::size_t i = 0; i < N; ++i)
-    {
-      // each thread is a std::async running this->thread_task():
-      finished.push_back(std::async( std::launch::async, [this]{ thread_task(); }));
-    }
-  }
-
-/**
- *  @brief:
- *  @note:    abort() cancels all non-started tasks, and tells every working thread
-              stop running, and waits for them to finish up.
- *  @return:
- */
-  void TextOperation::abort() {
-    cancel_pending();
-    finish();
-  }
-
-
-/**
- *  @brief:
- *  @note: cancel_pending() merely cancels all non-started tasks:
- *  @return:
- */
-  void TextOperation::cancel_pending() {
-    std::unique_lock<std::mutex> l(m);
-    work.clear();
-  }
-
-
-/**
- *  @brief:
- *  @note:
- *  @return:
- */
-  // finish enques a "stop the thread" message for every thread, then waits for them:
-  void TextOperation::finish() {
-      std::unique_lock<std::mutex> l(m);
-      for(auto&&unused:finished){
-        work.push_back({});
-      }
-    }
-
-
-   /* v.notify_all();
-    finished.clear();
-  }
-  ~tasks() {
-    finish();/**/
-  
-/**
- *  @brief:
- *  @note:
- *  @return:
- */
-  void TextOperation::thread_task() {
-    TextOperation op;
-    std::map<std::string, int> mapOfWordCount = op.read_dictionary_file();
-    while(true){
-      // pop a task off the queue:
-      std::string f;
-      {
-        // usual thread-safe queue code:
-        std::unique_lock<std::mutex> l(m);
-        if (work.empty()){
-          v.wait(l,[&]{return !work.empty();});
-        }
-        f = std::move(work.front());
-        find_all_mathces(mapOfWordCount, f);
-        work.pop_front();
-      }
-    }
-  }
-
-/**
- *  @brief:
- *  @note:
- *  @return:
+ *  @brief: Reads from defaule example dictionary files. Store values in a map object.
+ *  @note: map object containing string value in first place and in as second.
+ *  @return: Map with word in dictionary and id.
  */
 std::map<std::string, int> TextOperation::read_dictionary_file(){
   const char *fileName="example.txt";
@@ -168,16 +79,18 @@ std::map<std::string, int> TextOperation::read_dictionary_file(){
 }
 
 
-
 int main()
 {
   TextOperation test;
-  test.start(15);
   string sentence = "Need new floor tiles and roof work"; 
-
+  map<std::string, int> mapOfWordCount = test.read_dictionary_file();
+  vector<int> ids;
   for (int i = 0; i < 100; i++)
   {
-    test.queue(sentence);
+    ids = test.start(sentence, mapOfWordCount);
+    // Check if there are any return values
+    for (auto i = ids.begin(); i != ids.end(); ++i)
+    std::cout << *i << ' ';
 
   }
   return 0;
