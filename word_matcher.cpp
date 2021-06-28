@@ -20,7 +20,7 @@ class TextOperation {
 
     // Užkomentuoju, bet gal reikėtu async procesus deti i finished vektoriu, iš kurio veliau rezultatus issitraukti galima.
     // TextOperation::start funkcijoje bandžiau padaryti taip bet gaunu error neiaišku ir nepaėjo to padaryti. 
-    // std::vector<vector<int>> finished;
+    std::vector<future<vector<int>>> finished;
 };
 
 /**
@@ -50,9 +50,7 @@ vector<int> find_all_mathces(std::map<std::string, int> mapOfWordCount, string s
     // each thread is a std::async running this->find_all_matches():
     future<vector<int>> fut = std::async(std::launch::async, find_all_mathces, mapOfWordCount, sentence);
 
-    // finished.push_back(
-    //     std::async(std::launch::async, find_all_mathces, mapOfWordCount, sentence));
-    // finished.push_back(std::async(std::launch::async, find_all_mathces, mapOfWordCount, sentence));
+    finished.push_back(std::async(std::launch::async, find_all_mathces, mapOfWordCount, sentence));
 
     fut.wait();
     return fut.get();
@@ -93,5 +91,17 @@ int main()
     std::cout << *i << ' ';
 
   }
+
+  // Reiktu kaip nors issitraukti iš test.finished ta future objekta. Bet viskas kas bandau man failina
+  vector<future<vector<int>>> finished = test.finished;
+  future<vector<int>> first_value = finished.size();
+
+
+
+//   for (auto i = finished.begin(); i !=  finished.end(); ++i){
+
+//     future<vector<int>> fut = finished.begin();
+//     std::cout << i << ' ';
+// }
   return 0;
 }/**/
